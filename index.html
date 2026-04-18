@@ -174,6 +174,12 @@
   }
   .mode-badge.learn { background: #1565c0; color: #bbdefb; }
   .mode-badge.practice { background: #e94560; color: #fff; }
+  .flip-btn {
+    background: none; border: 1px solid #444; color: #aaa;
+    font-size: 18px; cursor: pointer; padding: 4px 9px;
+    border-radius: 8px; line-height: 1; transition: all 0.2s;
+  }
+  .flip-btn:hover, .flip-btn:active { background: rgba(255,255,255,0.1); color: #fff; border-color: #888; }
 
   /* ── STATUS ── */
   .status-bar {
@@ -416,7 +422,10 @@
   <div class="game-header">
     <button class="back-btn" onclick="goModeSelect()">&#8592; Back</button>
     <span class="opening-name" id="opening-title"></span>
-    <span class="mode-badge" id="mode-badge"></span>
+    <div style="display:flex;align-items:center;gap:7px;">
+      <button class="flip-btn" onclick="flipBoard()" title="Flip Board">&#8645;</button>
+      <span class="mode-badge" id="mode-badge"></span>
+    </div>
   </div>
   <div class="status-bar prompt" id="status-bar">White to move: play e4</div>
 
@@ -728,6 +737,7 @@ let lastMoveTo = null;
 let hintFrom = null;
 let hintTo = null;
 let castling = { K: true, Q: true, k: true, q: true };
+let boardFlipped = false;
 
 // For Learn mode: store board snapshots so Prev works
 let boardHistory = [];
@@ -976,8 +986,11 @@ function renderBoard() {
   const boardEl = document.getElementById('board');
   boardEl.innerHTML = '';
 
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
+  for (let dr = 0; dr < 8; dr++) {
+    for (let dc = 0; dc < 8; dc++) {
+      const r = boardFlipped ? 7 - dr : dr;
+      const c = boardFlipped ? 7 - dc : dc;
+
       const sq = document.createElement('div');
       const isLight = (r + c) % 2 === 0;
       sq.className = 'square ' + (isLight ? 'light' : 'dark');
@@ -1003,15 +1016,15 @@ function renderBoard() {
         }
       }
 
-      // Coordinate labels
+      // Coordinate labels — always on visual edges
       const colorClass = isLight ? 'on-light' : 'on-dark';
-      if (c === 0) {
+      if (dc === 0) {
         const rankLabel = document.createElement('span');
         rankLabel.className = 'coord-rank ' + colorClass;
         rankLabel.textContent = rowToRank(r);
         sq.appendChild(rankLabel);
       }
-      if (r === 7) {
+      if (dr === 7) {
         const fileLabel = document.createElement('span');
         fileLabel.className = 'coord-file ' + colorClass;
         fileLabel.textContent = colToFile(c);
@@ -1299,7 +1312,13 @@ function goModeSelect() {
   document.getElementById('mode-screen').style.display = 'block';
 }
 
+function flipBoard() {
+  boardFlipped = !boardFlipped;
+  renderBoard();
+}
+
 function goHome() {
+  boardFlipped = false;
   document.getElementById('game-screen').style.display = 'none';
   document.getElementById('mode-screen').style.display = 'none';
   document.getElementById('home-screen').style.display = 'block';
