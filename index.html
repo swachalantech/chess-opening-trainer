@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Chess Opening Trainer</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1a2e">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* ── SCREENS ── */
+  #home-screen { width: 100%; max-width: 1100px; padding: 16px 24px; }
+  #mode-screen, #game-screen { width: 100%; max-width: 500px; padding: 16px; }
+  #mode-screen, #game-screen { display: none; }
+
+  /* Learn mode: side-by-side layout on wider screens */
+  #game-screen.learn-layout {
+    max-width: 850px;
+  }
+  #game-screen.learn-layout .board-and-moves {
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+  #game-screen.learn-layout .board-col {
+    flex: 0 0 auto; width: min(65%, 460px);
+  }
+  #game-screen.learn-layout .moves-col {
+    flex: 1; min-width: 180px;
+  }
+  @media (max-width: 600px) {
+    #game-screen.learn-layout .board-and-moves { flex-direction: column; }
+    #game-screen.learn-layout .board-col { width: 100%; }
+  }
+
+  /* ── HOME ── */
+  .app-title {
+    text-align: center; margin: 24px 0 8px;
+    font-size: 26px; font-weight: 700; color: #fff; letter-spacing: -0.5px;
+  }
+  .app-subtitle {
+    text-align: center; font-size: 14px; color: #888; margin-bottom: 28px;
+  }
+  #opening-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 750px) {
+    #opening-list { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    #opening-list { grid-template-columns: 1fr; }
+  }
+  .opening-card {
+    background: #16213e; border: 1px solid #0f3460;
+    border-radius: 12px; padding: 16px;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; flex-direction: column; gap: 8px;
+    position: relative;
+  }
+  .opening-card:hover, .opening-card:active {
+    background: #0f3460; border-color: #e94560; transform: scale(1.02);
+  }
+  .opening-card h3 { font-size: 15px; color: #fff; font-weight: 700; line-height: 1.3; }
+  .card-style {
+    font-size: 12px; color: #90caf9; font-style: italic; line-height: 1.4;
+  }
+  .card-footer {
+    display: flex; align-items: center; justify-content: space-between; margin-top: 4px;
+  }
+  .card-best {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 700; padding: 3px 9px;
+    border-radius: 20px; letter-spacing: 0.3px;
+  }
+  .card-best.white { background: rgba(21,101,192,0.35); color: #90caf9; border: 1px solid #1565c0; }
+  .card-best.black { background: rgba(55,71,79,0.5);   color: #cfd8dc; border: 1px solid #546e7a; }
+  .card-best.both  { background: rgba(46,125,50,0.35); color: #a5d6a7; border: 1px solid #2e7d32; }
+  .opening-card .move-count {
+    display: inline-block; background: #e94560; color: #fff;
+    padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  }
+
+  /* ── TOOLTIP ── */
+  .tooltip-popup {
+    display: none;
+    position: fixed;
+    z-index: 999;
+    background: #0d1b2a;
+    border: 1px solid #e94560;
+    border-radius: 14px;
+    padding: 18px 20px;
+    width: 300px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.7);
+    pointer-events: none;
+  }
+  .tooltip-popup.visible { display: block; }
+  .tooltip-title {
+    font-size: 15px; font-weight: 700; color: #fff;
+    margin-bottom: 12px; padding-bottom: 8px;
+    border-bottom: 1px solid #1e3a5f;
+  }
+  .tooltip-best {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    padding: 2px 10px; border-radius: 20px; margin-bottom: 10px;
+  }
+  .tooltip-best.white { background: #1565c0; color: #bbdefb; }
+  .tooltip-best.black { background: #37474f; color: #cfd8dc; }
+  .tooltip-best.both  { background: #2e7d32; color: #c8e6c9; }
+  .tooltip-row {
+    display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start;
+  }
+  .tooltip-label {
+    font-size: 10px; font-weight: 700; color: #e94560;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    min-width: 52px; padding-top: 1px;
+  }
+  .tooltip-val { font-size: 12px; color: #ccc; line-height: 1.4; }
+  .tooltip-val.vibe { color: #ffb74d; font-style: italic; }
+  .tooltip-val.think { color: #90caf9; }
+  .tooltip-pros { color: #81c784; }
+  .tooltip-cons { color: #ef9a9a; }
+
+  /* ── MODE SELECTION ── */
+  .mode-title {
+    text-align: center; font-size: 20px; font-weight: 700; color: #fff;
+    margin: 24px 0 6px;
+  }
+  .mode-opening-name {
+    text-align: center; font-size: 14px; color: #e94560; margin-bottom: 24px;
+  }
+  .mode-card {
+    background: #16213e; border: 2px solid #0f3460;
+    border-radius: 14px; padding: 24px; margin-bottom: 14px;
+    cursor: pointer; transition: all 0.2s; text-align: center;
+  }
+  .mode-card:hover, .mode-card:active {
+    border-color: #e94560; transform: scale(1.01);
+  }
+  .mode-card .mode-icon { font-size: 36px; margin-bottom: 10px; }
+  .mode-card h3 { font-size: 18px; color: #fff; margin-bottom: 6px; }
+  .mode-card p { font-size: 13px; color: #999; line-height: 1.4; }
+  .mode-back-btn {
+    display: block; margin: 8px auto 0; background: none; border: none;
+    color: #e94560; font-size: 15px; cursor: pointer; padding: 8px 16px;
+  }
+
+  /* ── GAME HEADER ── */
+  .game-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .back-btn {
+    background: none; border: none; color: #e94560; font-size: 16px;
+    cursor: pointer; padding: 8px 12px; border-radius: 8px;
+  }
+  .back-btn:hover { background: rgba(233,69,96,0.15); }
+  .opening-name { font-size: 18px; font-weight: 600; color: #fff; }
+  .mode-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 20px;
+    font-weight: 600; letter-spacing: 0.5px;
+  }
+  .mode-badge.learn { background: #1565c0; color: #bbdefb; }
+  .mode-badge.practice { background: #e94560; color: #fff; }
+
+  /* ── STATUS ── */
+  .status-bar {
+    text-align: center; padding: 10px; border-radius: 10px;
+    margin-bottom: 12px; font-size: 15px; font-weight: 600;
+    transition: all 0.3s;
+  }
+  .status-bar.prompt { background: #16213e; color: #4fc3f7; }
+  .status-bar.correct { background: #1b5e20; color: #81c784; }
+  .status-bar.wrong { background: #b71c1c; color: #ffcdd2; }
+  .status-bar.complete { background: #1a237e; color: #90caf9; }
+  .status-bar.learn-status { background: #0d47a1; color: #90caf9; }
+
+  /* ── BOARD ── */
+  .board-wrapper { position: relative; width: 100%; padding-bottom: 100%; }
+  .board {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(8, 1fr);
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    user-select: none; -webkit-user-select: none;
+  }
+  .square {
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative; transition: background 0.15s;
+  }
+  .square img {
+    width: 80%; height: 80%; object-fit: contain;
+    pointer-events: none; filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
+  }
+  .square.light { background: #f0d9b5; }
+  .square.dark { background: #b58863; }
+  .square.selected { background: #7fc97f !important; }
+  .square.legal-target::after {
+    content: ''; position: absolute; width: 30%; height: 30%;
+    background: rgba(0,0,0,0.18); border-radius: 50%;
+  }
+  .square.legal-capture::after {
+    content: ''; position: absolute; width: 85%; height: 85%;
+    border: 4px solid rgba(0,0,0,0.18); border-radius: 50%;
+    background: none;
+  }
+  .square.wrong-move { animation: wrongFlash 0.6s ease; }
+  .square.last-move-from { background: rgba(255, 255, 100, 0.45) !important; }
+  .square.last-move-to { background: rgba(255, 255, 100, 0.50) !important; }
+  .square.hint-from { background: rgba(100, 181, 246, 0.6) !important; }
+  .square.hint-to { background: rgba(100, 181, 246, 0.7) !important; }
+
+  @keyframes wrongFlash {
+    0% { background: #e53935; } 30% { background: #ff1744; }
+    60% { background: #e53935; } 100% {}
+  }
+
+  /* ── ACTION BUTTONS (below board) ── */
+  .action-bar {
+    display: flex; gap: 10px; margin-top: 14px; justify-content: center;
+  }
+  .action-btn {
+    flex: 1; max-width: 160px; padding: 12px 10px; border-radius: 10px;
+    font-size: 15px; font-weight: 600; cursor: pointer; border: none;
+    transition: all 0.2s; display: flex; align-items: center;
+    justify-content: center; gap: 6px;
+  }
+  .action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .action-btn.btn-prev {
+    background: #16213e; color: #90caf9; border: 1px solid #1565c0;
+  }
+  .action-btn.btn-prev:hover:not(:disabled) { background: #1565c0; }
+  .action-btn.btn-next {
+    background: #1565c0; color: #fff;
+  }
+  .action-btn.btn-next:hover:not(:disabled) { background: #1976d2; }
+  .action-btn.btn-hint {
+    background: #16213e; color: #ffb74d; border: 1px solid #f57c00;
+  }
+  .action-btn.btn-hint:hover { background: #e65100; color: #fff; }
+  .action-btn.btn-reset {
+    background: #16213e; color: #ef9a9a; border: 1px solid #c62828;
+  }
+  .action-btn.btn-reset:hover { background: #c62828; color: #fff; }
+
+  /* ── MOVE LIST ── */
+  .move-list-section { margin-top: 16px; }
+  .move-list-title { font-size: 14px; color: #888; margin-bottom: 8px; }
+  .move-list {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    background: #16213e; border-radius: 10px; padding: 12px;
+    min-height: 44px; align-items: center;
+  }
+  .move-num { color: #666; font-size: 13px; min-width: 28px; }
+  .move-item {
+    font-size: 14px; padding: 3px 8px; border-radius: 6px;
+    font-family: 'SF Mono', 'Consolas', monospace;
+  }
+  .move-item.white-move { color: #fff; }
+  .move-item.black-move { color: #bbb; }
+  .move-item.current { background: #e94560; color: #fff; }
+  .move-item.current-learn { background: #1565c0; color: #fff; }
+  .move-item.played { opacity: 1; }
+  .move-item.upcoming { opacity: 0.35; }
+
+  /* ── PROGRESS ── */
+  .progress-wrap { margin-top: 16px; }
+  .progress-bar-bg {
+    width: 100%; height: 8px; background: #16213e;
+    border-radius: 4px; overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #e94560, #4fc3f7);
+    border-radius: 4px; transition: width 0.4s ease;
+  }
+  .progress-bar-fill.learn-fill {
+    background: linear-gradient(90deg, #1565c0, #42a5f5);
+  }
+  .progress-text {
+    text-align: center; font-size: 13px; color: #888; margin-top: 6px;
+  }
+
+  /* ── COMPLETION OVERLAY ── */
+  .completion-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .completion-overlay.show { display: flex; }
+  .completion-card {
+    background: #16213e; border-radius: 16px; padding: 32px;
+    text-align: center; max-width: 320px; width: 90%;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  }
+  .completion-card .trophy { font-size: 56px; margin-bottom: 12px; }
+  .completion-card h2 { color: #fff; margin-bottom: 8px; }
+  .completion-card p { color: #999; font-size: 14px; margin-bottom: 20px; }
+  .completion-card button {
+    background: #e94560; border: none; color: #fff;
+    padding: 12px 28px; border-radius: 10px; font-size: 16px;
+    cursor: pointer; margin: 4px;
+  }
+  .completion-card button.secondary {
+    background: transparent; border: 1px solid #555;
+  }
+
+  /* coord labels on squares */
+  .coord-rank, .coord-file {
+    position: absolute; font-size: min(2.8vw, 11px);
+    font-weight: 700; pointer-events: none; line-height: 1;
+  }
+  .coord-rank { top: 3px; left: 4px; }
+  .coord-file { bottom: 2px; right: 4px; }
+  .coord-rank.on-light, .coord-file.on-light { color: #b58863; }
+  .coord-rank.on-dark, .coord-file.on-dark { color: #f0d9b5; }
+
+  /* ── MOVE TABLE (Learn mode) ── */
+  .move-table-wrap {
+    background: #16213e; border-radius: 10px; overflow: hidden;
+  }
+  .move-table {
+    width: 100%; border-collapse: collapse;
+    font-family: 'SF Mono', 'Consolas', monospace; font-size: 15px;
+  }
+  .move-table th {
+    padding: 10px 12px; font-size: 12px; font-weight: 600;
+    color: #666; text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid #0f3460; text-align: left;
+  }
+  .move-table th:first-child { width: 40px; text-align: center; }
+  .move-table td {
+    padding: 9px 14px; border-bottom: 1px solid rgba(15,52,96,0.5);
+  }
+  .move-table tr:last-child td { border-bottom: none; }
+  .move-table td:first-child {
+    color: #555; text-align: center; font-size: 13px; width: 40px;
+  }
+  .move-table td.white-cell { color: #e0e0e0; }
+  .move-table td.black-cell { color: #aaa; }
+  .move-table td.played-cell { color: #e0e0e0; }
+  .move-table td.upcoming-cell { color: #444; }
+  .move-table td.current-cell {
+    color: #fff; font-weight: 700;
+    background: rgba(21,101,192,0.3); border-radius: 4px;
+  }
+  .move-table tr.current-row { background: rgba(21,101,192,0.1); }
+</style>
+</head>
+<body>
+
+<!-- TOOLTIP POPUP -->
+<div class="tooltip-popup" id="tooltip-popup"></div>
+
+<!-- HOME SCREEN -->
+<div id="home-screen">
+  <div class="app-title">Chess Opening Trainer</div>
+  <div class="app-subtitle">Select an opening to practice</div>
+  <div id="opening-list"></div>
+</div>
+
+<!-- MODE SELECTION SCREEN -->
+<div id="mode-screen">
+  <div class="mode-title">Choose Mode</div>
+  <div class="mode-opening-name" id="mode-opening-name"></div>
+  <div class="mode-card" onclick="startGame('learn')">
+    <div class="mode-icon">&#128218;</div>
+    <h3>Learn</h3>
+    <p>Step through the moves with Next and Previous buttons. Watch and memorize the opening at your own pace.</p>
+  </div>
+  <div class="mode-card" onclick="startGame('practice')">
+    <div class="mode-icon">&#9876;&#65039;</div>
+    <h3>Practice</h3>
+    <p>Play the moves yourself on the board. Wrong moves flash red. Use Hint if you're stuck.</p>
+  </div>
+  <button class="mode-back-btn" onclick="goHome()">&#8592; Back to openings</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen">
+  <div class="game-header">
+    <button class="back-btn" onclick="goModeSelect()">&#8592; Back</button>
+    <span class="opening-name" id="opening-title"></span>
+    <span class="mode-badge" id="mode-badge"></span>
+  </div>
+  <div class="status-bar prompt" id="status-bar">White to move: play e4</div>
+
+  <div class="board-and-moves">
+    <!-- LEFT: Board + controls -->
+    <div class="board-col">
+      <div class="board-wrapper">
+        <div class="board" id="board"></div>
+      </div>
+
+      <!-- LEARN MODE: Prev / Next -->
+      <div class="action-bar" id="learn-controls" style="display:none;">
+        <button class="action-btn btn-prev" id="btn-prev" onclick="learnPrev()">&#9664; Prev</button>
+        <button class="action-btn btn-next" id="btn-next" onclick="learnNext()">Next &#9654;</button>
+      </div>
+
+      <!-- PRACTICE MODE: Hint / Reset -->
+      <div class="action-bar" id="practice-controls" style="display:none;">
+        <button class="action-btn btn-hint" onclick="showHint()">&#128161; Hint</button>
+        <button class="action-btn btn-reset" onclick="resetGame()">&#8635; Reset</button>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill"></div></div>
+        <div class="progress-text" id="progress-text">Move 0 / 0</div>
+      </div>
+
+      <!-- PRACTICE MODE: inline move list -->
+      <div class="move-list-section" id="practice-move-list-section">
+        <div class="move-list-title">Moves</div>
+        <div class="move-list" id="move-list"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Move table (Learn mode only) -->
+    <div class="moves-col" id="moves-col" style="display:none;">
+      <div class="move-table-wrap">
+        <table class="move-table" id="move-table">
+          <thead>
+            <tr><th>#</th><th>White</th><th>Black</th></tr>
+          </thead>
+          <tbody id="move-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPLETION OVERLAY -->
+<div class="completion-overlay" id="completion-overlay">
+  <div class="completion-card">
+    <div class="trophy">&#127942;</div>
+    <h2 id="completion-title">Opening Complete!</h2>
+    <p id="completion-msg">You played all moves correctly.</p>
+    <button id="completion-again-btn">Practice Again</button>
+    <button class="secondary" onclick="goHome(); document.getElementById('completion-overlay').classList.remove('show')">Back to Menu</button>
+  </div>
+</div>
+
+<script>
+// ─── OPENING DATA ───
+const OPENINGS = [
+  {
+    name: "Four Knights Defense",
+    eco: "C49",
+    description: "1.e4 e5 2.Nf3 Nc6 3.Nc3 Nf6 — a solid, symmetrical opening",
+    info: { best: "both", vibe: "The \"Fair Start\"", think: "I just want a clean, normal game.", idea: "Everyone brings their knights out at once — symmetrical and balanced.", pros: "No scary tricks; easy for beginners.", cons: "Can get a little boring if no one takes a risk." },
+    moves: [
+      "e4","e5","Nf3","Nc6","Nc3","Nf6","d4","exd4",
+      "Nxd4","Bb4","Nxc6","bxc6","Bd3","d5","exd5","cxd5",
+      "O-O","O-O","Bg5","c6"
+    ]
+  },
+  {
+    name: "Sicilian Najdorf (var. 1)",
+    eco: "B98",
+    description: "1.e4 c5 2.Nf3 d6 3.d4 — Najdorf with 7...Be7",
+    info: { best: "black", vibe: "The \"Dynamic Warrior\"", think: "You take the center, I'll take the initiative!", idea: "Black allows White a big center but unleashes sharp queenside counterplay.", pros: "Very dynamic; used by World Champions.", cons: "Extremely complex — one mistake can be fatal." },
+    moves: [
+      "e4","c5","Nf3","d6","d4","cxd4","Nxd4","Nf6",
+      "Nc3","a6","Bg5","e6","f4","Be7","Qf3","Qc7",
+      "O-O-O","Nbd7"
+    ]
+  },
+  {
+    name: "Sicilian Najdorf (var. 2)",
+    eco: "B99",
+    description: "1.e4 c5 2.Nf3 d6 3.d4 — Najdorf with 7...Nbd7",
+    info: { best: "black", vibe: "The \"Dynamic Warrior\"", think: "You take the center, I'll take the initiative!", idea: "A slightly different setup — Black keeps the knight on d7 to support the queenside pawn storm.", pros: "Flexible and aggressive; great winning chances.", cons: "Requires deep preparation to handle White's many attacking options." },
+    moves: [
+      "e4","c5","Nf3","d6","d4","cxd4","Nxd4","Nf6",
+      "Nc3","a6","Bg5","e6","f4","Nbd7","Qf3","Qc7",
+      "O-O-O","b5","Bd3","Bb7","Rhe1","Be7"
+    ]
+  },
+  {
+    name: "Giuoco Piano",
+    eco: "C54",
+    description: "1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5 — the 'Quiet Game', classical Italian",
+    info: { best: "both", vibe: "The \"Quiet Builder\"", think: "Develop naturally, then fight in the middlegame!", idea: "Both sides develop bishops early and compete for central control in a fair, classical fight.", pros: "Solid plans and easy to learn; popular at all levels.", cons: "Can lead to sharp tactical positions if White goes for the attack." },
+    moves: [
+      "e4","e5","Nf3","Nc6","Bc4","Bc5","c3","Nf6",
+      "d4","exd4","cxd4","Bb4+","Bd2","Bxd2+","Nbxd2","d5",
+      "exd5","Nxd5","Qb3","Nce7"
+    ]
+  },
+  {
+    name: "Fried Liver Attack",
+    eco: "C57",
+    description: "1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6 4.Ng5 — a daring knight sacrifice on f7",
+    info: { best: "white", vibe: "The \"King Hunt\"", think: "Bye-bye Knight, hello King! Come out and play!", idea: "Give up a knight (Nxf7) to drag the enemy king into the open where you can chase him down.", pros: "Very scary for Black; can win very fast if opponent isn't prepared.", cons: "If the king escapes, you are down a piece with nothing to show." },
+    moves: [
+      "e4","e5","Nf3","Nc6","Bc4","Nf6","Ng5","d5",
+      "exd5","Nxd5","Nxf7","Kxf7","Qf3+","Ke6","Nc3","Ne7",
+      "d4","c6"
+    ]
+  },
+  {
+    name: "Two Knights Defense",
+    eco: "C57",
+    description: "1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6 4.Ng5 d5 5.exd5 Na5 — avoids the Fried Liver",
+    info: { best: "black", vibe: "The \"Fighting Shield\"", think: "I will fight back!", idea: "Use your knights to strike at the center and counter-attack instead of just defending.", pros: "Active and fun — you're not just defending!", cons: "You have to watch out for the Fried Liver attack!" },
+    moves: [
+      "e4","e5","Nf3","Nc6","Bc4","Nf6","Ng5","d5",
+      "exd5","Na5","Bb5+","c6","dxc6","bxc6","Be2","h6",
+      "Nf3","e4","Ne5"
+    ]
+  },
+  {
+    name: "Center Game",
+    eco: "C22",
+    description: "1.e4 e5 2.d4 exd4 3.Qxd4 — White develops the queen early to control center",
+    info: { best: "white", vibe: "The \"Door Opener\"", think: "Open the door, get the pieces out, GO!", idea: "Push your d-pawn early to open the board for your Queen and Bishops.", pros: "Quick action and immediate pressure on Black's position.", cons: "Your Queen can get chased around if you aren't careful." },
+    moves: [
+      "e4","e5","d4","exd4","Qxd4","Nc6","Qe3","Nf6",
+      "Nc3","Bb4","Bd2","O-O","O-O-O","Re8","Bc4","Bxc3",
+      "Bxc3","Nxe4","Qf4","Re7","Bxf7+","Rxf7","Qxe4","Qg5+",
+      "Bd2","Qf5","Qxf5","Rxf5","Nh3","d6"
+    ]
+  },
+  {
+    name: "Caro-Kann Defense",
+    eco: "B15",
+    description: "1.e4 c6 2.d4 d5 — solid and classical defense for Black",
+    info: { best: "black", vibe: "The \"Brick Wall\"", think: "You can't get past my wall!", idea: "Use your pawns (c6 and d5) to build a solid, unbreakable fortress.", pros: "Very hard to break; excellent endgame structure.", cons: "It's a bit slow and requires a lot of patience." },
+    moves: [
+      "e4","c6","d4","d5","Nc3","dxe4","Nxe4","Bf5",
+      "Ng3","Bg6","h4","h6","Nf3","Nd7","h5","Bh7",
+      "Bd3","Bxd3","Qxd3","Qc7","Bd2","Ngf6","O-O-O","e6"
+    ]
+  },
+  {
+    name: "Pirc Defense (var. 1)",
+    eco: "B07",
+    description: "1.e4 d6 2.d4 Nf6 3.Nc3 g6 4.f4 — Austrian Attack",
+    info: { best: "both", vibe: "The \"Slow Build\"", think: "No rush, let's build slowly.", idea: "Both sides develop their pieces calmly and wait for the right moment to strike.", pros: "Very solid and controlled; hard to go wrong early.", cons: "Can be a slow game with no fireworks early on." },
+    moves: [
+      "e4","d6","d4","Nf6","Nc3","g6","f4","Bg7","Nf3","O-O"
+    ]
+  },
+  {
+    name: "Pirc Defense (var. 2)",
+    eco: "B08",
+    description: "1.e4 d6 2.d4 Nf6 3.Nc3 g6 4.Be3 — Classical System",
+    info: { best: "both", vibe: "The \"Slow Build\"", think: "No rush, let's build slowly with Be3.", idea: "A calmer setup where White develops harmoniously and waits for Black to commit.", pros: "Flexible and solid; White keeps all options open.", cons: "Less forcing — the game can drift without a clear plan." },
+    moves: [
+      "e4","d6","d4","Nf6","Nc3","g6","Be3","c6",
+      "Qd2","b5","Bd3","Nbd7","Nf3"
+    ]
+  },
+  {
+    name: "Scandinavian Defense",
+    eco: "B01",
+    description: "1.e4 d5 — Black immediately challenges White's center pawn",
+    info: { best: "black", vibe: "The \"Quick Trade\"", think: "Let's clear the middle right now!", idea: "Hit White's center immediately (d5) and bring your Queen out for quick activity.", pros: "Very easy to learn and remember; good surprise weapon.", cons: "White gets to bully your Queen around a little bit early on." },
+    moves: [
+      "e4","d5","exd5","Qxd5","Nc3","Qa5","d4","Nf6",
+      "Nf3","c6","Bc4","Bf5","Bd2","e6","Qe2","Bb4",
+      "O-O-O"
+    ]
+  },
+  {
+    name: "French Defense (var. 1)",
+    eco: "C11",
+    description: "1.e4 e6 2.d4 d5 3.Nc3 Nf6 4.Bg5 — Classical French, Bg5 system",
+    info: { best: "black", vibe: "The \"Counter-Puncher\"", think: "Let you build the center, then I'll attack it!", idea: "Black builds a solid pawn chain and waits for the perfect moment to strike back.", pros: "Very solid and hard to bust; good endgame structure.", cons: "The c8 bishop can feel trapped behind your own pawns." },
+    moves: [
+      "e4","e6","d4","d5","Nc3","Nf6","Bg5","dxe4",
+      "Nxe4","Be7","Bxf6","Bxf6","Nf3","Nd7"
+    ]
+  },
+  {
+    name: "French Defense (var. 2)",
+    eco: "C18",
+    description: "1.e4 e6 2.d4 d5 3.Nc3 Bb4 — the Winawer Variation",
+    info: { best: "black", vibe: "The \"Pin and Pressure\"", think: "Pin your knight, mess up your pawns, then attack!", idea: "Black pins the c3 knight with Bb4 and forces White to create pawn weaknesses.", pros: "Creates immediate imbalances; great winning chances for Black.", cons: "Very sharp and double-edged — White gets a strong center too." },
+    moves: [
+      "e4","e6","d4","d5","Nc3","Bb4","e5","c5",
+      "a3","Bxc3+","bxc3","Ne7"
+    ]
+  },
+  {
+    name: "French Defense Advance",
+    eco: "C02",
+    description: "1.e4 e6 2.d4 d5 3.e5 — White gains space with the Advance Variation",
+    info: { best: "white", vibe: "The \"Space Invader\"", think: "I'll take the big half of the board, you take the small half.", idea: "Push your pawn to e5 to cramp Black's position and take control of space.", pros: "Lots of room to move your pieces; Black feels squeezed.", cons: "Black will poke and try to break your pawn center with ...c5." },
+    moves: [
+      "e4","e6","d4","d5","e5","c5","c3","Nc6","Nf3","Qb6"
+    ]
+  },
+  {
+    name: "Sicilian Dragon (Yugoslav Attack)",
+    eco: "B76",
+    description: "1.e4 c5 2.Nf3 d6 3.d4 — Dragon with f3, Qd2 and queenside castling",
+    info: { best: "both", vibe: "The \"Fire-Breathing Race\"", think: "Race to the King! Whoever gets there first wins!", idea: "Both players castle on opposite sides and race to attack the other king.", pros: "The most exciting game you can play — never boring!", cons: "One tiny mistake and you lose. Zero margin for error." },
+    moves: [
+      "e4","c5","Nf3","d6","d4","cxd4","Nxd4","Nf6",
+      "Nc3","g6","Be3","Bg7","f3","O-O","Qd2","Nc6",
+      "Bc4","Bd7","O-O-O","Rc8","Bb3"
+    ]
+  },
+  {
+    name: "Sicilian Sveshnikov (var. 1)",
+    eco: "B33",
+    description: "1.e4 c5 2.Nf3 Nc6 3.d4 — Sveshnikov with ...f5 counterplay",
+    info: { best: "black", vibe: "The \"Bold Counterattack\"", think: "I'll give you d5, but I'll own the queenside!", idea: "Black plays ...e5 to create immediate counterplay, accepting a hole on d5 in return for activity.", pros: "Very active and fighting — Black is never just defending.", cons: "White gets a powerful d5 outpost; requires precise play." },
+    moves: [
+      "e4","c5","Nf3","Nc6","d4","cxd4","Nxd4","Nf6",
+      "Nc3","e5","Ndb5","d6","Bg5","a6","Na3","b5",
+      "Bxf6","gxf6","Nd5","f5","c3","Bg7","exf5","Bxf5",
+      "Nc2","O-O","Nce3","Be6","Bd3","f5","Qh5"
+    ]
+  },
+  {
+    name: "Sicilian Sveshnikov (var. 2)",
+    eco: "B33",
+    description: "1.e4 c5 2.Nf3 Nc6 3.d4 — Sveshnikov with ...Be7 and ...Rb8",
+    info: { best: "black", vibe: "The \"Bold Counterattack\"", think: "Different route, same destination — queenside pressure!", idea: "An alternate Sveshnikov where Black develops Be7 and centralises the rook to b8 for queenside play.", pros: "Solid development with active counterplay on both flanks.", cons: "Very sharp and theoretical — demands preparation." },
+    moves: [
+      "e4","c5","Nf3","Nc6","d4","cxd4","Nxd4","Nf6",
+      "Nc3","e5","Ndb5","d6","Bg5","a6","Na3","b5",
+      "Nd5","Be7","Bxf6","Bxf6","c3","O-O","Nc2","Bg5",
+      "a4","bxa4","Rxa4","a5","Bc4","Rb8","b3","Kh8",
+      "O-O","f5"
+    ]
+  },
+  {
+    name: "Smith-Morra Gambit Accepted",
+    eco: "B21",
+    description: "1.e4 c5 2.d4 cxd4 3.c3 — White sacrifices a pawn for rapid development (10.h3 or Be3)",
+    info: { best: "white", vibe: "The \"Gift\" Attack", think: "Here's a pawn for you, here's a checkmate for me!", idea: "Give the opponent a free pawn so your pieces develop twice as fast and attack relentlessly.", pros: "Super active pieces; very hard for Black to defend against the attack.", cons: "If the attack fails, you're just down a pawn with nothing to show." },
+    moves: [
+      "e4","c5","d4","cxd4","c3","dxc3","Nxc3","Nc6",
+      "Nf3","d6","Bc4","e6","O-O","Nf6","Qe2","Be7",
+      "Rd1","e5","h3"
+    ]
+  },
+  {
+    name: "Queen's Gambit Accepted",
+    eco: "D20",
+    description: "1.d4 d5 2.c4 dxc4 — Black accepts the gambit pawn",
+    info: { best: "black", vibe: "The \"Pawn Grabber\"", think: "Free pawn? Yes please! Now let me handle the pressure...", idea: "Black accepts the pawn and works to keep it or convert it into a good endgame.", pros: "An extra pawn can be decisive in the endgame if defended correctly.", cons: "White gets rapid development and strong pressure for the pawn." },
+    moves: [
+      "d4","d5","c4","dxc4","e3","Nf6","Bxc4","e6",
+      "Nf3","c5","O-O","a6","Qe2"
+    ]
+  },
+  {
+    name: "Queen's Gambit Declined",
+    eco: "D50",
+    description: "1.d4 d5 2.c4 e6 — Black declines the gambit to maintain the center",
+    info: { best: "black", vibe: "The \"Strong Fortress\"", think: "I'm staying safe and solid.", idea: "Don't take the free pawn — build a strong center with your own pawns instead.", pros: "Very hard for White to find a way through; great structure.", cons: "Your light-squared bishop might feel a bit trapped behind your pawns." },
+    moves: [
+      "d4","d5","c4","e6","Nc3","Nf6","Bg5","Be7",
+      "e3","O-O","Nf3"
+    ]
+  }
+];
+
+// ─── PIECE IMAGES (Wikimedia Commons — Colin M.L. Burnett, BSD/GPL) ───
+const PIECE_IMGS = {
+  'K': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
+  'Q': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
+  'R': 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
+  'B': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
+  'N': 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
+  'P': 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
+  'k': 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
+  'q': 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
+  'r': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
+  'b': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
+  'n': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
+  'p': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg'
+};
+
+// ─── BOARD STATE ───
+const INITIAL_BOARD = [
+  ['r','n','b','q','k','b','n','r'],
+  ['p','p','p','p','p','p','p','p'],
+  [null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null],
+  [null,null,null,null,null,null,null,null],
+  ['P','P','P','P','P','P','P','P'],
+  ['R','N','B','Q','K','B','N','R']
+];
+
+let board = [];
+let selectedSq = null;
+let currentOpening = null;
+let currentOpeningIndex = 0;
+let currentMode = 'practice'; // 'learn' or 'practice'
+let moveIndex = 0;
+let totalMoves = 0;
+let wrongAttempts = 0;
+let hintsUsed = 0;
+let lastMoveFrom = null;
+let lastMoveTo = null;
+let hintFrom = null;
+let hintTo = null;
+let castling = { K: true, Q: true, k: true, q: true };
+
+// For Learn mode: store board snapshots so Prev works
+let boardHistory = [];
+let castlingHistory = [];
+
+// ─── HELPERS ───
+function cloneBoard(b) { return b.map(r => [...r]); }
+function isWhite(p) { return p && p === p.toUpperCase(); }
+function isBlack(p) { return p && p === p.toLowerCase(); }
+function fileToCol(f) { return f.charCodeAt(0) - 97; }
+function colToFile(c) { return String.fromCharCode(97 + c); }
+function rankToRow(r) { return 8 - r; }
+function rowToRank(row) { return 8 - row; }
+function coordToSq(r, c) { return colToFile(c) + rowToRank(r); }
+function currentTurn() { return moveIndex % 2 === 0 ? 'white' : 'black'; }
+
+// ─── SAN PARSER ───
+function parseSAN(san, boardState, isWhiteTurn) {
+  if (san === 'O-O' || san === 'O-O-O') {
+    const row = isWhiteTurn ? 7 : 0;
+    if (san === 'O-O') return { from: [row, 4], to: [row, 6], castle: 'K' };
+    else return { from: [row, 4], to: [row, 2], castle: 'Q' };
+  }
+
+  let s = san.replace(/[+#!?]/g, '');
+  let promo = null;
+  if (s.includes('=')) { promo = s.split('=')[1]; s = s.split('=')[0]; }
+
+  let piece, fromFileHint = null, fromRankHint = null, isCapture = false;
+
+  if (s[0] >= 'A' && s[0] <= 'Z') { piece = s[0]; s = s.slice(1); }
+  else { piece = 'P'; }
+
+  isCapture = s.includes('x');
+  s = s.replace('x', '');
+
+  const toCol = fileToCol(s[s.length - 2]);
+  const toRow = rankToRow(parseInt(s[s.length - 1]));
+
+  const disambig = s.slice(0, s.length - 2);
+  if (disambig.length === 1) {
+    if (disambig[0] >= 'a' && disambig[0] <= 'h') fromFileHint = fileToCol(disambig[0]);
+    else fromRankHint = parseInt(disambig[0]);
+  } else if (disambig.length === 2) {
+    fromFileHint = fileToCol(disambig[0]);
+    fromRankHint = parseInt(disambig[1]);
+  }
+
+  if (piece === 'P' && isCapture && fromFileHint === null && san[0] >= 'a' && san[0] <= 'h') {
+    fromFileHint = fileToCol(san[0]);
+  }
+
+  const targetPiece = isWhiteTurn ? piece : piece.toLowerCase();
+  const candidates = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (boardState[r][c] !== targetPiece) continue;
+      if (fromFileHint !== null && c !== fromFileHint) continue;
+      if (fromRankHint !== null && rankToRow(fromRankHint) !== r) continue;
+      if (canPieceMove(boardState, piece, r, c, toRow, toCol, isWhiteTurn)) {
+        candidates.push([r, c]);
+      }
+    }
+  }
+  if (candidates.length === 0) return null;
+  return { from: candidates[0], to: [toRow, toCol], promo };
+}
+
+function canPieceMove(boardState, piece, fr, fc, tr, tc, isWhiteTurn) {
+  const dp = piece.toUpperCase();
+  const dr = tr - fr, dc = tc - fc;
+  const adr = Math.abs(dr), adc = Math.abs(dc);
+  switch (dp) {
+    case 'P': {
+      const dir = isWhiteTurn ? -1 : 1;
+      const startRow = isWhiteTurn ? 6 : 1;
+      if (dc === 0 && dr === dir && !boardState[tr][tc]) return true;
+      if (dc === 0 && fr === startRow && dr === 2 * dir && !boardState[fr + dir][fc] && !boardState[tr][tc]) return true;
+      if (adc === 1 && dr === dir && boardState[tr][tc]) return true;
+      return false;
+    }
+    case 'N': return (adr === 2 && adc === 1) || (adr === 1 && adc === 2);
+    case 'B': if (adr !== adc) return false; return isPathClear(boardState, fr, fc, tr, tc);
+    case 'R': if (dr !== 0 && dc !== 0) return false; return isPathClear(boardState, fr, fc, tr, tc);
+    case 'Q': if (adr !== adc && dr !== 0 && dc !== 0) return false; return isPathClear(boardState, fr, fc, tr, tc);
+    case 'K': return adr <= 1 && adc <= 1;
+  }
+  return false;
+}
+
+function isPathClear(boardState, fr, fc, tr, tc) {
+  const dr = Math.sign(tr - fr), dc = Math.sign(tc - fc);
+  let r = fr + dr, c = fc + dc;
+  while (r !== tr || c !== tc) { if (boardState[r][c]) return false; r += dr; c += dc; }
+  return true;
+}
+
+function applyMove(boardState, from, to, castleType, promo) {
+  const newBoard = cloneBoard(boardState);
+  const piece = newBoard[from[0]][from[1]];
+  if (castleType) {
+    const row = from[0];
+    newBoard[row][to[1]] = piece;
+    newBoard[row][from[1]] = null;
+    if (castleType === 'K') { newBoard[row][5] = newBoard[row][7]; newBoard[row][7] = null; }
+    else { newBoard[row][3] = newBoard[row][0]; newBoard[row][0] = null; }
+    return newBoard;
+  }
+  newBoard[to[0]][to[1]] = promo ? (isWhite(piece) ? promo : promo.toLowerCase()) : piece;
+  newBoard[from[0]][from[1]] = null;
+  return newBoard;
+}
+
+// ─── LEGAL MOVES ───
+function getLegalMovesFrom(r, c) {
+  const piece = board[r][c];
+  if (!piece) return [];
+  const iw = isWhite(piece);
+  if ((currentTurn() === 'white' && !iw) || (currentTurn() === 'black' && iw)) return [];
+  const moves = [];
+  for (let tr = 0; tr < 8; tr++) {
+    for (let tc = 0; tc < 8; tc++) {
+      if (board[tr][tc] && isWhite(board[tr][tc]) === iw) continue;
+      if (canPieceMove(board, piece.toUpperCase(), r, c, tr, tc, iw)) moves.push([tr, tc]);
+    }
+  }
+  if (piece === 'K' || piece === 'k') {
+    const row = iw ? 7 : 0;
+    if (r === row && c === 4) {
+      if ((iw ? castling.K : castling.k) && !board[row][5] && !board[row][6] && board[row][7]) moves.push([row, 6]);
+      if ((iw ? castling.Q : castling.q) && !board[row][1] && !board[row][2] && !board[row][3] && board[row][0]) moves.push([row, 2]);
+    }
+  }
+  return moves;
+}
+
+// ─── CHECK / EXECUTE MOVE ───
+function checkMove(fromR, fromC, toR, toC) {
+  const expectedSAN = currentOpening.moves[moveIndex];
+  const iw = currentTurn() === 'white';
+  const parsed = parseSAN(expectedSAN, board, iw);
+  if (!parsed) return false;
+  if (parsed.castle) {
+    return fromR === parsed.from[0] && fromC === parsed.from[1] && toR === parsed.to[0] && toC === parsed.to[1];
+  }
+  return parsed.from[0] === fromR && parsed.from[1] === fromC && parsed.to[0] === toR && parsed.to[1] === toC;
+}
+
+function updateCastlingRights(piece, from) {
+  if (piece === 'K') { castling.K = false; castling.Q = false; }
+  if (piece === 'k') { castling.k = false; castling.q = false; }
+  if (piece === 'R' && from[0] === 7 && from[1] === 7) castling.K = false;
+  if (piece === 'R' && from[0] === 7 && from[1] === 0) castling.Q = false;
+  if (piece === 'r' && from[0] === 0 && from[1] === 7) castling.k = false;
+  if (piece === 'r' && from[0] === 0 && from[1] === 0) castling.q = false;
+}
+
+function executeExpectedMove() {
+  const san = currentOpening.moves[moveIndex];
+  const iw = currentTurn() === 'white';
+  const parsed = parseSAN(san, board, iw);
+  if (!parsed) return;
+
+  const piece = board[parsed.from[0]][parsed.from[1]];
+  updateCastlingRights(piece, parsed.from);
+
+  board = applyMove(board, parsed.from, parsed.to, parsed.castle, parsed.promo);
+  lastMoveFrom = parsed.from;
+  lastMoveTo = parsed.to;
+  hintFrom = null;
+  hintTo = null;
+  moveIndex++;
+
+  // Save snapshot for Learn mode
+  boardHistory[moveIndex] = cloneBoard(board);
+  castlingHistory[moveIndex] = { ...castling };
+
+  updateAll();
+
+  if (moveIndex >= totalMoves) {
+    setTimeout(() => showCompletion(), 400);
+  }
+}
+
+// ─── LEARN MODE ───
+function learnNext() {
+  if (moveIndex >= totalMoves) return;
+  executeExpectedMove();
+  selectedSq = null;
+  updateLearnButtons();
+}
+
+function learnPrev() {
+  if (moveIndex <= 0) return;
+  moveIndex--;
+  board = cloneBoard(boardHistory[moveIndex]);
+  castling = { ...castlingHistory[moveIndex] };
+
+  // Set last move highlight
+  if (moveIndex > 0) {
+    const prevSan = currentOpening.moves[moveIndex - 1];
+    const prevIw = (moveIndex - 1) % 2 === 0;
+    const prevParsed = parseSAN(prevSan, boardHistory[moveIndex - 1], prevIw);
+    if (prevParsed) {
+      lastMoveFrom = prevParsed.from;
+      lastMoveTo = prevParsed.to;
+    }
+  } else {
+    lastMoveFrom = null;
+    lastMoveTo = null;
+  }
+
+  selectedSq = null;
+  updateAll();
+  updateLearnButtons();
+}
+
+function updateLearnButtons() {
+  document.getElementById('btn-prev').disabled = moveIndex <= 0;
+  document.getElementById('btn-next').disabled = moveIndex >= totalMoves;
+}
+
+// ─── PRACTICE MODE: HINT ───
+function showHint() {
+  if (moveIndex >= totalMoves) return;
+  const san = currentOpening.moves[moveIndex];
+  const iw = currentTurn() === 'white';
+  const parsed = parseSAN(san, board, iw);
+  if (!parsed) return;
+
+  hintFrom = parsed.from;
+  hintTo = parsed.to;
+  hintsUsed++;
+
+  const statusEl = document.getElementById('status-bar');
+  const fromSq = coordToSq(parsed.from[0], parsed.from[1]);
+  const toSq = coordToSq(parsed.to[0], parsed.to[1]);
+  statusEl.className = 'status-bar prompt';
+  statusEl.textContent = `Hint: ${san} (${fromSq} → ${toSq})`;
+
+  renderBoard();
+}
+
+// ─── UI RENDERING ───
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const sq = document.createElement('div');
+      const isLight = (r + c) % 2 === 0;
+      sq.className = 'square ' + (isLight ? 'light' : 'dark');
+      sq.dataset.row = r;
+      sq.dataset.col = c;
+
+      // Last move highlight
+      if (lastMoveFrom && lastMoveFrom[0] === r && lastMoveFrom[1] === c) sq.classList.add('last-move-from');
+      if (lastMoveTo && lastMoveTo[0] === r && lastMoveTo[1] === c) sq.classList.add('last-move-to');
+
+      // Hint highlight (practice mode)
+      if (hintFrom && hintFrom[0] === r && hintFrom[1] === c) sq.classList.add('hint-from');
+      if (hintTo && hintTo[0] === r && hintTo[1] === c) sq.classList.add('hint-to');
+
+      // Selected
+      if (selectedSq && selectedSq[0] === r && selectedSq[1] === c) sq.classList.add('selected');
+
+      // Legal move dots (practice mode only)
+      if (currentMode === 'practice' && selectedSq) {
+        const legals = getLegalMovesFrom(selectedSq[0], selectedSq[1]);
+        for (const [lr, lc] of legals) {
+          if (lr === r && lc === c) sq.classList.add(board[r][c] ? 'legal-capture' : 'legal-target');
+        }
+      }
+
+      // Coordinate labels
+      const colorClass = isLight ? 'on-light' : 'on-dark';
+      if (c === 0) {
+        const rankLabel = document.createElement('span');
+        rankLabel.className = 'coord-rank ' + colorClass;
+        rankLabel.textContent = rowToRank(r);
+        sq.appendChild(rankLabel);
+      }
+      if (r === 7) {
+        const fileLabel = document.createElement('span');
+        fileLabel.className = 'coord-file ' + colorClass;
+        fileLabel.textContent = colToFile(c);
+        sq.appendChild(fileLabel);
+      }
+
+      // Piece
+      if (board[r][c]) {
+        const img = document.createElement('img');
+        img.src = PIECE_IMGS[board[r][c]];
+        img.alt = board[r][c];
+        img.draggable = false;
+        sq.appendChild(img);
+      }
+
+      sq.addEventListener('click', () => onSquareClick(r, c));
+      boardEl.appendChild(sq);
+    }
+  }
+}
+
+function onSquareClick(r, c) {
+  // In learn mode, board clicks do nothing
+  if (currentMode === 'learn') return;
+  if (moveIndex >= totalMoves) return;
+
+  const piece = board[r][c];
+  const turn = currentTurn();
+
+  if (selectedSq) {
+    const [sr, sc] = selectedSq;
+    if (sr === r && sc === c) { selectedSq = null; renderBoard(); return; }
+    if (piece && ((turn === 'white' && isWhite(piece)) || (turn === 'black' && isBlack(piece)))) {
+      selectedSq = [r, c]; renderBoard(); return;
+    }
+    const legals = getLegalMovesFrom(sr, sc);
+    const isLegal = legals.some(([lr, lc]) => lr === r && lc === c);
+    if (isLegal) {
+      if (checkMove(sr, sc, r, c)) {
+        executeExpectedMove();
+        selectedSq = null;
+      } else {
+        wrongAttempts++;
+        showWrongMove(r, c);
+        selectedSq = null;
+        renderBoard();
+      }
+    } else {
+      selectedSq = null; renderBoard();
+    }
+    return;
+  }
+
+  if (piece && ((turn === 'white' && isWhite(piece)) || (turn === 'black' && isBlack(piece)))) {
+    selectedSq = [r, c]; renderBoard();
+  }
+}
+
+function showWrongMove(r, c) {
+  const statusEl = document.getElementById('status-bar');
+  const expectedSAN = currentOpening.moves[moveIndex];
+  statusEl.className = 'status-bar wrong';
+  statusEl.textContent = `Wrong move! Expected: ${expectedSAN}`;
+  setTimeout(() => { updateStatus(); renderBoard(); }, 1200);
+  renderBoard();
+  const squares = document.querySelectorAll('.square');
+  squares[r * 8 + c].classList.add('wrong-move');
+}
+
+function updateStatus() {
+  const statusEl = document.getElementById('status-bar');
+  if (moveIndex >= totalMoves) {
+    statusEl.className = 'status-bar complete';
+    statusEl.textContent = currentMode === 'learn'
+      ? 'You have reviewed all moves!'
+      : 'Opening complete! Well done!';
+    return;
+  }
+  const turn = currentTurn();
+  const san = currentOpening.moves[moveIndex];
+  const moveNum = Math.floor(moveIndex / 2) + 1;
+
+  if (currentMode === 'learn') {
+    statusEl.className = 'status-bar learn-status';
+    statusEl.textContent = `Move ${moveNum}: ${turn === 'white' ? 'White' : 'Black'} plays ${san}`;
+  } else {
+    statusEl.className = 'status-bar prompt';
+    statusEl.textContent = `${turn === 'white' ? 'White' : 'Black'} to move — Move ${moveNum} of ${Math.ceil(totalMoves / 2)}`;
+  }
+}
+
+function renderMoveList() {
+  if (currentMode === 'learn') {
+    renderMoveTable();
+    return;
+  }
+
+  // Practice mode: inline move list
+  const listEl = document.getElementById('move-list');
+  listEl.innerHTML = '';
+  for (let i = 0; i < currentOpening.moves.length; i += 2) {
+    const moveNum = Math.floor(i / 2) + 1;
+    const numEl = document.createElement('span');
+    numEl.className = 'move-num';
+    numEl.textContent = moveNum + '.';
+    listEl.appendChild(numEl);
+
+    const wEl = document.createElement('span');
+    wEl.className = 'move-item white-move';
+    wEl.textContent = currentOpening.moves[i];
+    if (i < moveIndex) wEl.classList.add('played');
+    else if (i === moveIndex) wEl.classList.add('current');
+    else wEl.classList.add('upcoming');
+    listEl.appendChild(wEl);
+
+    if (i + 1 < currentOpening.moves.length) {
+      const bEl = document.createElement('span');
+      bEl.className = 'move-item black-move';
+      bEl.textContent = currentOpening.moves[i + 1];
+      if (i + 1 < moveIndex) bEl.classList.add('played');
+      else if (i + 1 === moveIndex) bEl.classList.add('current');
+      else bEl.classList.add('upcoming');
+      listEl.appendChild(bEl);
+    }
+  }
+}
+
+function renderMoveTable() {
+  const tbody = document.getElementById('move-table-body');
+  tbody.innerHTML = '';
+
+  for (let i = 0; i < currentOpening.moves.length; i += 2) {
+    const moveNum = Math.floor(i / 2) + 1;
+    const tr = document.createElement('tr');
+
+    // Is this the row containing the current move?
+    const isCurrentRow = (i === moveIndex || i + 1 === moveIndex);
+    if (isCurrentRow) tr.className = 'current-row';
+
+    // Move number
+    const tdNum = document.createElement('td');
+    tdNum.textContent = moveNum;
+    tr.appendChild(tdNum);
+
+    // White move
+    const tdW = document.createElement('td');
+    tdW.textContent = currentOpening.moves[i];
+    if (i < moveIndex) tdW.className = 'white-cell played-cell';
+    else if (i === moveIndex) tdW.className = 'white-cell current-cell';
+    else tdW.className = 'white-cell upcoming-cell';
+    tr.appendChild(tdW);
+
+    // Black move
+    const tdB = document.createElement('td');
+    if (i + 1 < currentOpening.moves.length) {
+      tdB.textContent = currentOpening.moves[i + 1];
+      if (i + 1 < moveIndex) tdB.className = 'black-cell played-cell';
+      else if (i + 1 === moveIndex) tdB.className = 'black-cell current-cell';
+      else tdB.className = 'black-cell upcoming-cell';
+    }
+    tr.appendChild(tdB);
+
+    tbody.appendChild(tr);
+  }
+}
+
+function updateProgress() {
+  const pct = (moveIndex / totalMoves) * 100;
+  const fill = document.getElementById('progress-fill');
+  fill.style.width = pct + '%';
+  fill.className = 'progress-bar-fill' + (currentMode === 'learn' ? ' learn-fill' : '');
+  document.getElementById('progress-text').textContent = `Move ${moveIndex} / ${totalMoves}`;
+}
+
+function updateAll() {
+  updateStatus();
+  renderBoard();
+  renderMoveList();
+  updateProgress();
+}
+
+function showCompletion() {
+  const titleEl = document.getElementById('completion-title');
+  const msgEl = document.getElementById('completion-msg');
+  const againBtn = document.getElementById('completion-again-btn');
+
+  if (currentMode === 'learn') {
+    titleEl.textContent = 'Review Complete!';
+    msgEl.textContent = 'You\'ve seen all the moves. Ready to practice?';
+    againBtn.textContent = 'Switch to Practice';
+    againBtn.onclick = () => {
+      document.getElementById('completion-overlay').classList.remove('show');
+      currentMode = 'practice';
+      setupModeUI();
+      resetGame();
+    };
+  } else {
+    titleEl.textContent = 'Opening Complete!';
+    const parts = [];
+    if (wrongAttempts === 0 && hintsUsed === 0) {
+      msgEl.textContent = 'Perfect! No mistakes and no hints!';
+    } else {
+      if (wrongAttempts > 0) parts.push(`${wrongAttempts} wrong attempt${wrongAttempts > 1 ? 's' : ''}`);
+      if (hintsUsed > 0) parts.push(`${hintsUsed} hint${hintsUsed > 1 ? 's' : ''} used`);
+      msgEl.textContent = `Completed with ${parts.join(' and ')}. Keep practicing!`;
+    }
+    againBtn.textContent = 'Practice Again';
+    againBtn.onclick = () => {
+      document.getElementById('completion-overlay').classList.remove('show');
+      resetGame();
+    };
+  }
+  document.getElementById('completion-overlay').classList.add('show');
+}
+
+// ─── NAVIGATION ───
+function selectOpening(index) {
+  currentOpeningIndex = index;
+  currentOpening = OPENINGS[index];
+  totalMoves = currentOpening.moves.length;
+
+  document.getElementById('mode-opening-name').textContent = currentOpening.name;
+  document.getElementById('home-screen').style.display = 'none';
+  document.getElementById('mode-screen').style.display = 'block';
+  document.getElementById('game-screen').style.display = 'none';
+}
+
+function startGame(mode) {
+  currentMode = mode;
+  document.getElementById('opening-title').textContent = currentOpening.name;
+  document.getElementById('mode-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+  setupModeUI();
+  resetGame();
+}
+
+function setupModeUI() {
+  const gameScreen = document.getElementById('game-screen');
+  const badge = document.getElementById('mode-badge');
+  const learnCtrl = document.getElementById('learn-controls');
+  const practiceCtrl = document.getElementById('practice-controls');
+  const movesCol = document.getElementById('moves-col');
+  const practiceMoveList = document.getElementById('practice-move-list-section');
+
+  if (currentMode === 'learn') {
+    gameScreen.classList.add('learn-layout');
+    badge.textContent = 'LEARN';
+    badge.className = 'mode-badge learn';
+    learnCtrl.style.display = 'flex';
+    practiceCtrl.style.display = 'none';
+    movesCol.style.display = 'block';
+    practiceMoveList.style.display = 'none';
+  } else {
+    gameScreen.classList.remove('learn-layout');
+    badge.textContent = 'PRACTICE';
+    badge.className = 'mode-badge practice';
+    learnCtrl.style.display = 'none';
+    practiceCtrl.style.display = 'flex';
+    movesCol.style.display = 'none';
+    practiceMoveList.style.display = 'block';
+  }
+}
+
+function resetGame() {
+  board = cloneBoard(INITIAL_BOARD);
+  moveIndex = 0;
+  wrongAttempts = 0;
+  hintsUsed = 0;
+  selectedSq = null;
+  lastMoveFrom = null;
+  lastMoveTo = null;
+  hintFrom = null;
+  hintTo = null;
+  castling = { K: true, Q: true, k: true, q: true };
+
+  // Init history for Learn mode
+  boardHistory = [cloneBoard(board)];
+  castlingHistory = [{ ...castling }];
+
+  updateAll();
+  if (currentMode === 'learn') updateLearnButtons();
+}
+
+function goModeSelect() {
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('mode-screen').style.display = 'block';
+}
+
+function goHome() {
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('mode-screen').style.display = 'none';
+  document.getElementById('home-screen').style.display = 'block';
+}
+
+// ─── CARD STYLE DATA ───
+const CARD_STYLE = {
+  "Four Knights Defense":              { best: "both",  label: "✔️ Both",    style: "Easy / Fair (The Friendly Game)" },
+  "Sicilian Najdorf (var. 1)":         { best: "black", label: "⭐ Black",   style: "Ninja Attack (The Sharp Fighter)" },
+  "Sicilian Najdorf (var. 2)":         { best: "black", label: "⭐ Black",   style: "Ninja Attack (The Sharp Fighter)" },
+  "Giuoco Piano":                      { best: "both",  label: "✔️ Both",    style: "Calm / Smart (The Slow Build-up)" },
+  "Fried Liver Attack":                { best: "white", label: "⭐ White",   style: "Super Aggressive (The King Hunt)" },
+  "Two Knights Defense":               { best: "black", label: "⭐ Black",   style: "Fighting Back (The Shield & Spear)" },
+  "Center Game":                       { best: "white", label: "⭐ White",   style: "Quick Action (The Door Opener)" },
+  "Caro-Kann Defense":                 { best: "black", label: "⭐ Black",   style: "Defensive / Strong (The Brick Wall)" },
+  "Pirc Defense (var. 1)":             { best: "both",  label: "✔️ Both",    style: "Patient / Tricky (The Sneaky Waiter)" },
+  "Pirc Defense (var. 2)":             { best: "both",  label: "✔️ Both",    style: "Patient / Tricky (The Sneaky Waiter)" },
+  "Scandinavian Defense":              { best: "black", label: "⭐ Black",   style: "Simple / Direct (The Quick Trade)" },
+  "French Defense (var. 1)":           { best: "white", label: "⭐ White",   style: "Pressure (The Pin & Squeeze)" },
+  "French Defense (var. 2)":           { best: "both",  label: "✔️ Both",    style: "Messy / Fun (The Wild Scramble)" },
+  "French Defense Advance":            { best: "white", label: "⭐ White",   style: "Control (The Space Invader)" },
+  "Sicilian Dragon (Yugoslav Attack)": { best: "both",  label: "✔️ Both",    style: "Wild / Exciting (The Fire-Breathing Race)" },
+  "Sicilian Sveshnikov (var. 1)":      { best: "both",  label: "✔️ Both",    style: "Tactical / Active (The Power Jump)" },
+  "Sicilian Sveshnikov (var. 2)":      { best: "both",  label: "✔️ Both",    style: "Tactical / Active (The Power Jump)" },
+  "Smith-Morra Gambit Accepted":       { best: "white", label: "⭐ White",   style: "Fast & Tricky (The Gift Attack)" },
+  "Queen's Gambit Accepted":           { best: "black", label: "⭐ Black",   style: "Active / Clever (The Take & Strike)" },
+  "Queen's Gambit Declined":           { best: "black", label: "⭐ Black",   style: "Solid / Safe (The Strong Fortress)" },
+};
+
+// ─── TOOLTIP ───
+const tooltip = document.getElementById('tooltip-popup');
+let tooltipTimeout = null;
+
+function showTooltip(e, op) {
+  const info = op.info;
+  if (!info) return;
+  const bestLabel = info.best === 'white' ? '⭐ White (The Attacker)' : info.best === 'black' ? '⭐ Black (The Counter-Striker)' : '✔️ Both (Fair & Balanced)';
+  const bestClass = info.best === 'white' ? 'white' : info.best === 'black' ? 'black' : 'both';
+  tooltip.innerHTML = `
+    <div class="tooltip-title">♟️ ${op.name}</div>
+    <span class="tooltip-best ${bestClass}">${bestLabel}</span>
+    <div class="tooltip-row"><span class="tooltip-label">Vibe</span><span class="tooltip-val vibe">${info.vibe}</span></div>
+    <div class="tooltip-row"><span class="tooltip-label">Think</span><span class="tooltip-val think">"${info.think}"</span></div>
+    <div class="tooltip-row"><span class="tooltip-label">Idea</span><span class="tooltip-val">${info.idea}</span></div>
+    <div class="tooltip-row"><span class="tooltip-label">✅ Pros</span><span class="tooltip-val tooltip-pros">${info.pros}</span></div>
+    <div class="tooltip-row"><span class="tooltip-label">⚠️ Cons</span><span class="tooltip-val tooltip-cons">${info.cons}</span></div>
+  `;
+  positionTooltip(e);
+  tooltip.classList.add('visible');
+}
+
+function positionTooltip(e) {
+  const tw = 300, th = 260;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = e.clientX + 14;
+  let y = e.clientY + 14;
+  if (x + tw > vw - 10) x = e.clientX - tw - 14;
+  if (y + th > vh - 10) y = e.clientY - th - 14;
+  tooltip.style.left = Math.max(8, x) + 'px';
+  tooltip.style.top  = Math.max(8, y) + 'px';
+}
+
+function hideTooltip() {
+  tooltip.classList.remove('visible');
+}
+
+// ─── INIT ───
+function init() {
+  const listEl = document.getElementById('opening-list');
+  OPENINGS.forEach((op, i) => {
+    const card = document.createElement('div');
+    card.className = 'opening-card';
+    const fullMoves = Math.ceil(op.moves.length / 2);
+    const cs = CARD_STYLE[op.name] || { best: 'both', label: '✔️ Both', style: '' };
+    card.innerHTML = `
+      <h3>${op.name}</h3>
+      <div class="card-style">${cs.style}</div>
+      <div class="card-footer">
+        <span class="card-best ${cs.best}">${cs.label}</span>
+        <span class="move-count">${fullMoves} moves</span>
+      </div>
+    `;
+    card.addEventListener('click', () => selectOpening(i));
+
+    // Tooltip: hover (desktop) + long-press (mobile)
+    card.addEventListener('mouseenter', (e) => showTooltip(e, op));
+    card.addEventListener('mousemove',  (e) => positionTooltip(e));
+    card.addEventListener('mouseleave', () => hideTooltip());
+
+    // Mobile: long press
+    let pressTimer = null;
+    card.addEventListener('touchstart', (e) => {
+      pressTimer = setTimeout(() => showTooltip(e.touches[0], op), 500);
+    }, { passive: true });
+    card.addEventListener('touchend', () => {
+      clearTimeout(pressTimer);
+      setTimeout(hideTooltip, 2000);
+    });
+
+    listEl.appendChild(card);
+  });
+}
+
+// Preload piece images
+Object.values(PIECE_IMGS).forEach(src => { const img = new Image(); img.src = src; });
+
+init();
+</script>
+</body>
+</html>
