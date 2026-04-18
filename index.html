@@ -201,9 +201,32 @@
     display: flex; align-items: center; justify-content: center;
     cursor: pointer; position: relative; transition: background 0.15s;
   }
-  .square img {
-    width: 80%; height: 80%; object-fit: contain;
-    pointer-events: none; filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.3));
+  /* Unicode chess pieces — disc approach for clear white/black distinction */
+  .piece {
+    font-size: min(9vw, 44px);
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 82%;
+    height: 82%;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .piece-w {
+    color: #1a1a1a;
+    background: radial-gradient(circle at 35% 35%, #ffffff 0%, #e0d4b8 100%);
+    box-shadow: 0 3px 7px rgba(0,0,0,0.5), inset 0 1px 4px rgba(255,255,255,0.95);
+    border: 1.5px solid rgba(0,0,0,0.18);
+  }
+  .piece-b {
+    color: #d8cfc4;
+    background: radial-gradient(circle at 35% 35%, #555 0%, #1a1a1a 100%);
+    box-shadow: 0 3px 7px rgba(0,0,0,0.55), inset 0 1px 3px rgba(255,255,255,0.12);
+    border: 1.5px solid rgba(255,255,255,0.08);
   }
   .square.light { background: #f0d9b5; }
   .square.dark { background: #b58863; }
@@ -673,20 +696,10 @@ const OPENINGS = [
   }
 ];
 
-// ─── PIECE IMAGES (Wikimedia Commons — Colin M.L. Burnett, BSD/GPL) ───
-const PIECE_IMGS = {
-  'K': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
-  'Q': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
-  'R': 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
-  'B': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
-  'N': 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
-  'P': 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg',
-  'k': 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
-  'q': 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
-  'r': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
-  'b': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
-  'n': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
-  'p': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg'
+// ─── PIECE UNICODE CHARACTERS ───
+const PIECE_CHARS = {
+  'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+  'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
 };
 
 // ─── BOARD STATE ───
@@ -1007,11 +1020,10 @@ function renderBoard() {
 
       // Piece
       if (board[r][c]) {
-        const img = document.createElement('img');
-        img.src = PIECE_IMGS[board[r][c]];
-        img.alt = board[r][c];
-        img.draggable = false;
-        sq.appendChild(img);
+        const span = document.createElement('span');
+        span.className = 'piece ' + (isWhite(board[r][c]) ? 'piece-w' : 'piece-b');
+        span.textContent = PIECE_CHARS[board[r][c]];
+        sq.appendChild(span);
       }
 
       sq.addEventListener('click', () => onSquareClick(r, c));
@@ -1390,9 +1402,6 @@ function init() {
     listEl.appendChild(card);
   });
 }
-
-// Preload piece images
-Object.values(PIECE_IMGS).forEach(src => { const img = new Image(); img.src = src; });
 
 init();
 </script>
